@@ -18,6 +18,7 @@ ROOT defaults to the git root of the cwd, else the cwd. OUT defaults to
 
 | Kind | Found by | Metadata |
 |------|----------|----------|
+| `archify` | `.archify/*/*.html` | `candidate.json` (title, diagram_type), `*.finalize-summary.json`, `*.browser-check.json` |
 | `registry` | `**/artifacts.md` | `- [title](url): purpose (YYYY-MM-DD). Copy: path`, grouped under `## Area` headings |
 | `canvas` | folders containing `canvas.json` | board order, titles, `x/y/w/h`; boards are `*.dc.html` |
 
@@ -26,6 +27,7 @@ claude.ai link plus local preview. Registry URLs are private to the owner's acco
 
 ## Modules
 
+- `sources/archify.py` — scan and metadata of `.archify` outputs.
 - `sources/registry.py` — parse `artifacts.md`; skip and warn on lines that do not match.
 - `sources/canvas.py` — read `canvas.json`, list `*.dc.html` boards in `order`.
 - `model.py` — single `Item` type; merge registry + canvas.
@@ -34,8 +36,9 @@ claude.ai link plus local preview. Registry URLs are private to the owner's acco
 
 ## Page behaviour
 
-- Sidebar: search, kind filter, area/project filter; items grouped by area.
+- Sidebar: search, kind filter, area/project filter; items grouped by area (archify by project).
 - Selection lives in the URL hash.
+- `archify`: iframe to the `file://` URL.
 - `canvas`: boards stacked vertically, each in an iframe of its `w×h` scaled to the pane, title above.
   `.dc.html` files reference a `support.js` that is absent from repo copies; the unknown `<x-dc>` tag
   is ignored by the browser and the styled content still lays out.

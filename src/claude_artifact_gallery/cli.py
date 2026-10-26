@@ -5,8 +5,8 @@ Usage: claude-artifact-gallery [ROOT] [-o OUT] [--no-open]
   OUT   gallery file (default: ~/.cache/claude-artifact-gallery/<root>-<hash>.html,
         so no file is written into your repo)
 
-Sources: artifacts.md registries (claude.ai links) and design
-canvases (canvas.json + *.dc.html). Re-run to refresh.
+Sources: .archify/ outputs, artifacts.md registries (claude.ai links), and
+design canvases (canvas.json + *.dc.html). Re-run to refresh.
 """
 import argparse
 import hashlib
@@ -20,6 +20,7 @@ from typing import List, Tuple
 
 from .model import Item, merge
 from .page import render
+from .sources.archify import find_archify
 from .sources.canvas import find_canvases
 from .sources.registry import find_registries, parse_registry
 
@@ -41,10 +42,11 @@ def collect(root: Path, warn=_warn) -> Tuple[List[Item], dict]:
         items, found = parse_registry(path, root, counted)
         registry += items
         copies.update(found)
-    items = merge(registry, find_canvases(root, counted), copies)
+    items = merge(registry, find_canvases(root, counted), copies) + find_archify(root)
     items.sort(key=lambda i: i.date, reverse=True)
     counts = Counter(i.kind for i in items)
-    return items, {"registry": counts["registry"], "canvas": counts["canvas"], "skipped": skipped}
+    return items, {"archify": counts["archify"], "registry": counts["registry"],
+                   "canvas": counts["canvas"], "skipped": skipped}
 
 
 def default_root() -> Path:
@@ -75,7 +77,7 @@ def main(argv=None) -> int:
     items, counts = collect(root)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(items), encoding="utf-8")
-    print(f"{len(items)} artifact(s): registry {counts['registry']}, "
+    print(f"{len(items)} artifact(s): archify {counts['archify']}, registry {counts['registry']}, "
           f"canvas {counts['canvas']}, skipped {counts['skipped']} -> {out}")
     if not args.no_open:
         webbrowser.open(out.as_uri())

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "claude-artifact-gallery"
 version = "0.1.0"
-description = "Browse your Claude artifacts in one page: a searchable gallery of published claude.ai artifacts and local design canvases, found by scanning a project folder."
+description = "Browse your Claude artifacts in one page: a searchable gallery of published claude.ai artifacts, local design canvases and archify diagrams, found by scanning a project folder."
 requires-python = ">=3.8"
 dependencies = []
 

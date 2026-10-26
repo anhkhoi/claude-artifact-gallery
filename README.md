@@ -1,7 +1,7 @@
 # claude-artifact-gallery
 
-Browse your Claude artifacts in one page: a searchable gallery of published claude.ai artifacts and local
-design canvases, found by scanning a project folder.
+Browse your Claude artifacts in one page: a searchable gallery of published claude.ai artifacts, local
+design canvases and archify diagrams, found by scanning a project folder.
 
 ```
 pipx install git+https://github.com/anhkhoi/claude-artifact-gallery.git
@@ -17,6 +17,7 @@ The gallery is written to `~/.cache/claude-artifact-gallery/`, never into the sc
 
 | Kind | Found by | Shown as |
 |------|----------|----------|
+| `archify` | `.archify/<run>/*.html` | the page in an iframe |
 | `registry` | `artifacts.md` | entry with a link to claude.ai (those pages are private and cannot be embedded) |
 | `canvas` | folder with `canvas.json` and `*.dc.html` boards | the boards stacked, scaled to the pane |
 

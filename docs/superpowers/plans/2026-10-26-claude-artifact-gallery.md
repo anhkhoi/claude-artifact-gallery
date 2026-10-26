@@ -8,8 +8,6 @@
 
 **Tech Stack:** Python >=3.8, stdlib only at runtime; pytest for tests; setuptools with `src/` layout.
 
-> **Scope change after execution:** the `.archify` source (Task 4) was dropped; the tool covers claude.ai registry entries and design canvases only.
-
 **Spec:** `docs/superpowers/specs/2026-10-26-claude-artifact-gallery-design.md`
 
 ## Global Constraints

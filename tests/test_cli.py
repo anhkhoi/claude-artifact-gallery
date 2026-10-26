@@ -10,6 +10,9 @@ def embedded(out):
 
 
 def build_tree(tmp_path, title="Type scale"):
+    run = tmp_path / ".archify" / "workflow-x-20261024-000000"
+    run.mkdir(parents=True)
+    (run / "x.html").write_text("<html></html>")
     canvas = tmp_path / "ai-review" / "design" / "type-scale"
     canvas.mkdir(parents=True)
     (canvas / "Main.dc.html").write_text("<div></div>")
@@ -27,18 +30,18 @@ def run(tmp_path, root=None):
     return code, out
 
 
-def test_cli_smoke_writes_page_with_registry_and_canvas_kinds(tmp_path):
+def test_cli_smoke_writes_page_with_all_three_kinds(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
     build_tree(root)
-    # an unreferenced canvas so both kinds survive the merge
+    # an unreferenced canvas so all three kinds survive the merge
     other = root / "docs" / "other"
     other.mkdir(parents=True)
     (other / "canvas.json").write_text(json.dumps({"title": "Loose canvas"}))
     code, out = run(tmp_path, root)
     items, _ = embedded(out)
     assert code == 0
-    assert sorted(i["kind"] for i in items) == ["canvas", "registry", "registry"]
+    assert sorted(i["kind"] for i in items) == ["archify", "canvas", "registry", "registry"]
     merged = next(i for i in items if i["title"] == "Type scale")
     assert merged["url"] and merged["boards"][0]["w"] == 800
 
