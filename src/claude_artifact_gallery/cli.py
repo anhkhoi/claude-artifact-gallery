@@ -78,7 +78,7 @@ def main(argv=None) -> int:
     out = Path(args.out).resolve() if args.out else default_out(root)
     items, counts = collect(root)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(items), encoding="utf-8")
+    out.write_text(render(items, root), encoding="utf-8")
     print(f"{len(items)} artifact(s): archify {counts['archify']}, registry {counts['registry']}, "
           f"canvas {counts['canvas']}, skipped {counts['skipped']} -> {out}")
     if not args.no_open:

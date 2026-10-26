@@ -100,3 +100,28 @@ def test_page_guards_bad_hash_and_refits_on_pane_resize():
     from claude_artifact_gallery.page import PAGE
     assert "try{return decodeURIComponent" in PAGE
     assert "new ResizeObserver(fit)" in PAGE
+
+
+def test_kind_tags_have_distinct_colours_in_light_and_dark():
+    from claude_artifact_gallery.page import PAGE
+    for kind in ("archify", "registry", "canvas"):
+        assert PAGE.count(f"--k-{kind}:") == 2  # light + dark theme
+        assert f".tag.k-{kind}" in PAGE
+    assert 'class="tag k-${esc(i.kind)}"' in PAGE
+
+
+def test_page_embeds_scanned_root_name_and_path(tmp_path):
+    root = tmp_path / "my-project"
+    root.mkdir()
+    _, out = run(tmp_path, root)
+    text = out.read_text(encoding="utf-8")
+    info = json.loads(re.search(r"const ROOT=(.*?);\n", text).group(1))
+    assert info == {"name": "my-project", "path": str(root.resolve())}
+
+
+def test_root_name_is_a_button_that_copies_the_folder_path():
+    from claude_artifact_gallery.page import PAGE
+    assert '<button class="root" id="root"' in PAGE
+    assert "navigator.clipboard.writeText(t)" in PAGE
+    assert "copy(ROOT.path)" in PAGE
+    assert 'execCommand("copy")' in PAGE  # fallback when the Clipboard API is unavailable
