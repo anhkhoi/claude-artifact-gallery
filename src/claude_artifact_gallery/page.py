@@ -41,6 +41,10 @@ iframe{border:0;background:#fff}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 .bd{position:absolute;background:#fff;box-shadow:0 2px 28px rgba(0,0,0,.14)}
 .bd iframe{display:block;border:0}
+.sh{position:absolute;inset:0;cursor:grab}
+.stage.pan,.stage.pan .sh{cursor:grabbing}
+.bd.on{outline:8px solid var(--acc)}.bd.on .sh{display:none}
+.tb .hint{margin-left:auto}
 .bl{position:absolute;left:0;bottom:100%;margin-bottom:14px;font-size:30px;color:var(--mute);white-space:nowrap}
 .nt{position:absolute;white-space:pre-wrap}
 .nt.t1{font-size:112px;font-weight:600;line-height:1.1;color:var(--fg)}
@@ -101,9 +105,9 @@ function canvasHtml(i){
   const x0=Math.min(...box.map(b=>b[0])),y0=Math.min(...box.map(b=>b[1]));
   Z.W=Math.max(...box.map(b=>b[2]))-x0+2*PAD;Z.H=Math.max(...box.map(b=>b[3]))-y0+2*PAD;
   const at=(x,y)=>`left:${x-x0+PAD}px;top:${y-y0+PAD}px`;
-  const bd=i.boards.map(b=>`<div class="bd" style="${at(b.x,b.y)};width:${b.w}px;height:${b.h}px"><div class="bl">${esc(b.title)}</div><iframe src="${esc(b.href)}" width="${b.w}" height="${b.h}" title="${esc(b.title)}"></iframe></div>`).join("");
+  const bd=i.boards.map(b=>`<div class="bd" style="${at(b.x,b.y)};width:${b.w}px;height:${b.h}px"><div class="bl">${esc(b.title)}</div><iframe src="${esc(b.href)}" width="${b.w}" height="${b.h}" title="${esc(b.title)}"></iframe><div class="sh" title="Double-click to interact"></div></div>`).join("");
   const nt=i.notes.map(n=>`<div class="nt ${n.kind==="title1"?"t1":"st f-"+esc(n.fill)}" style="${at(n.x,n.y)};width:${nw(n)}px">${esc(n.text)}</div>`).join("");
-  return `<div class="tb"><button data-z="fit">Fit</button><button data-z="1">100%</button><button data-z="out">−</button><button data-z="in">+</button><span id="zl"></span></div><div class="stage" id="stage"><div id="sizer"><div id="world" style="width:${Z.W}px;height:${Z.H}px">${bd}${nt}</div></div></div>`;
+  return `<div class="tb"><button data-z="fit">Fit</button><button data-z="1">100%</button><button data-z="out">−</button><button data-z="in">+</button><span id="zl"></span><span class="hint">Drag to pan · Ctrl/⌘ + scroll to zoom · 0 to fit · double-click a board to interact</span></div><div class="stage" id="stage"><div id="sizer"><div id="world" style="width:${Z.W}px;height:${Z.H}px">${bd}${nt}</div></div></div>`;
 }
 function fit(){
   const st=$("#stage");if(!st)return;
@@ -136,6 +140,34 @@ if(RO)RO.observe($("#view"));
 $("#view").onclick=e=>{const b=e.target.closest("[data-z]");if(!b)return;const z=b.dataset.z;
   if(z==="fit")Z.mode="fit";else{Z.mode="z";Z.s=z==="1"?1:Math.min(4,Math.max(.02,Z.cur*(z==="in"?1.25:.8)))}
   fit()};
+const stg=()=>$("#stage");
+const clearOn=()=>document.querySelectorAll(".bd.on").forEach(b=>b.classList.remove("on"));
+let drag=null;
+$("#view").addEventListener("mousedown",e=>{
+  if(e.button!==0||e.target.closest(".bd.on"))return;
+  clearOn();
+  const st=e.target.closest("#stage");if(!st)return;
+  e.preventDefault();
+  drag={x:e.clientX,y:e.clientY,l:st.scrollLeft,t:st.scrollTop,st};
+  st.classList.add("pan");
+});
+document.addEventListener("mousemove",e=>{if(!drag)return;drag.st.scrollLeft=drag.l-(e.clientX-drag.x);drag.st.scrollTop=drag.t-(e.clientY-drag.y)});
+document.addEventListener("mouseup",()=>{if(drag)drag.st.classList.remove("pan");drag=null});
+$("#view").addEventListener("dblclick",e=>{const sh=e.target.closest(".sh");if(sh)sh.parentElement.classList.add("on")});
+$("#view").addEventListener("wheel",e=>{
+  if(!(e.ctrlKey||e.metaKey))return;
+  const st=stg();if(!st)return;
+  e.preventDefault();
+  const r=st.getBoundingClientRect(),cx=e.clientX-r.left,cy=e.clientY-r.top;
+  const wx=(st.scrollLeft+cx)/Z.cur,wy=(st.scrollTop+cy)/Z.cur;
+  Z.mode="z";Z.s=Math.min(4,Math.max(.02,Z.cur*Math.exp(-e.deltaY*.01)));fit();
+  st.scrollLeft=wx*Z.cur-cx;st.scrollTop=wy*Z.cur-cy;
+},{passive:false});
+document.addEventListener("keydown",e=>{
+  if(/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||""))return;
+  if(e.key==="Escape")clearOn();
+  if(e.key==="0"&&!e.ctrlKey&&!e.metaKey&&stg()){Z.mode="fit";fit()}
+});
 for(const id of ["q","kd","gr"])$("#"+id).oninput=render;
 render();
 if(location.hash)show();else if(ITEMS.length)location.hash=encodeURIComponent(key(ITEMS[0]));
