@@ -60,7 +60,9 @@ def default_root() -> Path:
 
 
 def default_out(root: Path) -> Path:
-    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "claude-artifact-gallery"
+    xdg = os.environ.get("XDG_CACHE_HOME", "")  # the XDG spec says to ignore empty or relative values
+    base = Path(xdg) if xdg and Path(xdg).is_absolute() else Path.home() / ".cache"
+    cache = base / "claude-artifact-gallery"
     cache.mkdir(parents=True, exist_ok=True)
     return cache / f"{root.name}-{hashlib.sha1(str(root).encode()).hexdigest()[:8]}.html"
 

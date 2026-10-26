@@ -34,7 +34,7 @@ def merge(registry: List[Item], canvases: List[Item], copy_paths: Dict[str, Path
                   and (c.meta["dir"] == folder or folder in c.meta["dir"].parents)), None)
         if c:
             used.append(c)
-            r = replace(r, boards=list(c.boards))
+            r = replace(r, boards=list(c.boards), date=r.date or c.date)
         out.append(r)
     out.extend(c for c in canvases if c not in used)
     return out

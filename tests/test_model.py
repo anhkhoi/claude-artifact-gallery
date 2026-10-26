@@ -48,3 +48,12 @@ def test_merge_matches_canvas_in_subfolder_of_copy_dir(tmp_path):
 def test_to_dict_key_distinguishes_canvases_with_same_title_and_group(tmp_path):
     a, b = tmp_path / "x", tmp_path / "y"
     assert canvas(a, "S").to_dict()["key"] != canvas(b, "S").to_dict()["key"]
+
+
+def test_merge_takes_canvas_date_when_registry_has_none(tmp_path):
+    c = canvas(tmp_path)
+    c.date = "2026-10-20"
+    undated = reg()
+    undated.date = ""
+    assert merge([undated], [c], {"https://claude.ai/artifact/x": tmp_path})[0].date == "2026-10-20"
+    assert merge([reg()], [c], {"https://claude.ai/artifact/x": tmp_path})[0].date == "2026-10-17"

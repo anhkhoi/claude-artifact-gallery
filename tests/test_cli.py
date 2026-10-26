@@ -85,3 +85,18 @@ def test_default_out_is_outside_root(tmp_path, monkeypatch):
 def test_canvas_without_boards_gets_no_private_page_message(tmp_path):
     from claude_artifact_gallery.page import PAGE
     assert "has no boards" in PAGE
+
+
+def test_empty_or_relative_xdg_cache_home_falls_back_to_home_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    root = tmp_path / "repo"
+    root.mkdir()
+    for bad in ("", "relative/cache"):
+        monkeypatch.setenv("XDG_CACHE_HOME", bad)
+        assert default_out(root).parent == tmp_path / "home" / ".cache" / "claude-artifact-gallery"
+
+
+def test_page_guards_bad_hash_and_refits_on_pane_resize():
+    from claude_artifact_gallery.page import PAGE
+    assert "try{return decodeURIComponent" in PAGE
+    assert "new ResizeObserver(fit)" in PAGE

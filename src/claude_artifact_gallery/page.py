@@ -48,11 +48,12 @@ const ITEMS=__DATA__;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const key=i=>i.key;
+const hash=()=>{try{return decodeURIComponent(location.hash.slice(1))}catch(e){return ""}};
 const uniq=f=>[...new Set(ITEMS.map(f))].sort();
 for(const [id,f] of [["kd",i=>i.kind],["gr",i=>i.group]])
   $("#"+id).innerHTML+=uniq(f).map(v=>`<option>${esc(v)}</option>`).join("");
 function render(){
-  const q=$("#q").value.toLowerCase(),kd=$("#kd").value,gr=$("#gr").value,sel=decodeURIComponent(location.hash.slice(1));
+  const q=$("#q").value.toLowerCase(),kd=$("#kd").value,gr=$("#gr").value,sel=hash();
   const hit=ITEMS.filter(i=>(!kd||i.kind===kd)&&(!gr||i.group===gr)&&
     [i.title,i.purpose,i.group,i.tags.join(" ")].join(" ").toLowerCase().includes(q));
   $("#n").textContent=`(${hit.length}/${ITEMS.length})`;
@@ -74,7 +75,7 @@ function fit(){
   }
 }
 function show(){
-  const i=ITEMS.find(x=>key(x)===decodeURIComponent(location.hash.slice(1)));
+  const i=ITEMS.find(x=>key(x)===hash());
   if(!i){$("#view").innerHTML="";$("#bar").textContent="";return}
   document.title=i.title+" · Claude Artifact Gallery";
   let bar=`<b>${esc(i.title)}</b><span>${esc(i.date)}</span>`;
@@ -90,6 +91,7 @@ function show(){
 $("#list").onclick=e=>{const a=e.target.closest(".it");if(a)location.hash=encodeURIComponent(a.dataset.k)};
 addEventListener("hashchange",()=>{show();render()});
 addEventListener("resize",fit);
+if(typeof ResizeObserver!=="undefined")new ResizeObserver(fit).observe($("#view"));
 for(const id of ["q","kd","gr"])$("#"+id).oninput=render;
 render();
 if(location.hash)show();else if(ITEMS.length)location.hash=encodeURIComponent(key(ITEMS[0]));
