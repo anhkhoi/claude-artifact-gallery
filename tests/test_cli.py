@@ -125,3 +125,11 @@ def test_root_name_is_a_button_that_copies_the_folder_path():
     assert "navigator.clipboard.writeText(t)" in PAGE
     assert "copy(ROOT.path)" in PAGE
     assert 'execCommand("copy")' in PAGE  # fallback when the Clipboard API is unavailable
+
+
+def test_canvas_view_is_a_positioned_world_with_zoom_controls():
+    from claude_artifact_gallery.page import PAGE
+    for needle in ('data-z="fit"', 'data-z="1"', 'data-z="out"', 'data-z="in"', 'id="stage"', 'id="world"',
+                   "i.boards.length||i.notes.length", "const nt=i.notes.map"):
+        assert needle in PAGE, needle
+    assert ".board{" not in PAGE  # the stacked layout is gone

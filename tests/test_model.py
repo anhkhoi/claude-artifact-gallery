@@ -57,3 +57,10 @@ def test_merge_takes_canvas_date_when_registry_has_none(tmp_path):
     undated.date = ""
     assert merge([undated], [c], {"https://claude.ai/artifact/x": tmp_path})[0].date == "2026-10-20"
     assert merge([reg()], [c], {"https://claude.ai/artifact/x": tmp_path})[0].date == "2026-10-17"
+
+
+def test_merge_copies_canvas_notes(tmp_path):
+    c = canvas(tmp_path)
+    c.notes = [{"x": 0, "y": 0, "w": 100, "kind": "title1", "fill": "", "text": "T"}]
+    out = merge([reg()], [c], {"https://claude.ai/artifact/x": tmp_path})
+    assert out[0].notes == c.notes and out[0].to_dict()["notes"] == c.notes

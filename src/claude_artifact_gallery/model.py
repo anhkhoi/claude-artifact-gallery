@@ -13,7 +13,8 @@ class Item:
     date: str = ""
     url: str = ""   # claude.ai URL, "" when none
     href: str = ""  # file:// URI of the page to embed, "" when none
-    boards: list = field(default_factory=list)  # [{"title", "href", "w", "h"}]
+    boards: list = field(default_factory=list)  # [{"title", "href", "x", "y", "w", "h"}]
+    notes: list = field(default_factory=list)   # canvas notes [{"x", "y", "w", "kind", "fill", "text"}]
     tags: list = field(default_factory=list)
     meta: dict = field(default_factory=dict)
 
@@ -34,7 +35,7 @@ def merge(registry: List[Item], canvases: List[Item], copy_paths: Dict[str, Path
                   and (c.meta["dir"] == folder or folder in c.meta["dir"].parents)), None)
         if c:
             used.append(c)
-            r = replace(r, boards=list(c.boards), date=r.date or c.date)
+            r = replace(r, boards=list(c.boards), notes=list(c.notes), date=r.date or c.date)
         out.append(r)
     out.extend(c for c in canvases if c not in used)
     return out

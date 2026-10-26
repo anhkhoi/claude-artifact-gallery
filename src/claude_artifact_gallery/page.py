@@ -10,8 +10,8 @@ PAGE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Claude Artifact Gallery</title>
 <style>
-:root{--bg:#fff;--panel:#f6f7f9;--fg:#1c2128;--mute:#667085;--line:#e1e4e8;--acc:#2563eb;--sel:#e8f0fe;--k-archify:#6d28d9;--k-registry:#c2410c;--k-canvas:#0f766e}
-@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--panel:#151a21;--fg:#e6edf3;--mute:#8b96a5;--line:#262d37;--acc:#6ea8ff;--sel:#1b2a44;--k-archify:#b794f6;--k-registry:#fb923c;--k-canvas:#2dd4bf}}
+:root{--bg:#fff;--panel:#f6f7f9;--fg:#1c2128;--mute:#667085;--line:#e1e4e8;--acc:#2563eb;--sel:#e8f0fe;--cv:#eeeeec;--k-archify:#6d28d9;--k-registry:#c2410c;--k-canvas:#0f766e}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--panel:#151a21;--fg:#e6edf3;--mute:#8b96a5;--line:#262d37;--acc:#6ea8ff;--sel:#1b2a44;--cv:#1a1f27;--k-archify:#b794f6;--k-registry:#fb923c;--k-canvas:#2dd4bf}}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
 body{display:flex;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,sans-serif}
 aside{width:340px;min-width:260px;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line)}
@@ -32,9 +32,20 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 #view{flex:1;overflow:auto;display:flex;flex-direction:column}
 iframe{border:0;background:#fff}
 #view>iframe{flex:1;width:100%}
-.board{padding:12px}.board h3{margin:0 0 6px;font-size:13px}
-.wrap{overflow:hidden;border:1px solid var(--line);border-radius:6px}
-.wrap iframe{transform-origin:0 0}
+.tb{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--line);color:var(--mute);font-size:12px}
+.tb button{padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer}
+.tb button:hover{border-color:var(--acc);color:var(--acc)}
+#view.cv{overflow:hidden}
+.stage{flex:1;overflow:auto;background:var(--cv)}
+#sizer{position:relative}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+.bd{position:absolute;background:#fff;box-shadow:0 2px 28px rgba(0,0,0,.14)}
+.bd iframe{display:block;border:0}
+.bl{position:absolute;left:0;bottom:100%;margin-bottom:14px;font-size:30px;color:var(--mute);white-space:nowrap}
+.nt{position:absolute;white-space:pre-wrap}
+.nt.t1{font-size:112px;font-weight:600;line-height:1.1;color:var(--fg)}
+.nt.st{box-sizing:border-box;padding:32px;border-radius:20px;font-size:28px;line-height:1.45;color:#1c2128;background:#fef3c7}
+.nt.st.f-orange{background:#fed7aa}.nt.st.f-blue{background:#bfdbfe}.nt.st.f-green{background:#bbf7d0}.nt.st.f-pink{background:#fbcfe8}.nt.st.f-purple{background:#e9d5ff}
 .card{margin:auto;max-width:520px;padding:24px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .card a{display:inline-block;margin-top:12px;color:var(--acc)}
 .root{display:block;max-width:100%;margin:-4px 0 8px;padding:0;border:0;background:none;color:var(--mute);font:inherit;font-size:12px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -82,11 +93,24 @@ function render(){
   }
   $("#list").innerHTML=h||'<p class="empty">No artifacts</p>';
 }
+const Z={mode:"fit",s:1,cur:1,W:1,H:1};
+function canvasHtml(i){
+  const PAD=120,LAB=64,nw=n=>n.w||(n.kind==="title1"?1600:600);
+  const box=[...i.boards.map(b=>[b.x,b.y-LAB,b.x+b.w,b.y+b.h]),
+    ...i.notes.map(n=>[n.x,n.y,n.x+nw(n),n.y+(n.kind==="title1"?150:Math.max(160,n.text.split("\n").length*44+80))])];
+  const x0=Math.min(...box.map(b=>b[0])),y0=Math.min(...box.map(b=>b[1]));
+  Z.W=Math.max(...box.map(b=>b[2]))-x0+2*PAD;Z.H=Math.max(...box.map(b=>b[3]))-y0+2*PAD;
+  const at=(x,y)=>`left:${x-x0+PAD}px;top:${y-y0+PAD}px`;
+  const bd=i.boards.map(b=>`<div class="bd" style="${at(b.x,b.y)};width:${b.w}px;height:${b.h}px"><div class="bl">${esc(b.title)}</div><iframe src="${esc(b.href)}" width="${b.w}" height="${b.h}" title="${esc(b.title)}"></iframe></div>`).join("");
+  const nt=i.notes.map(n=>`<div class="nt ${n.kind==="title1"?"t1":"st f-"+esc(n.fill)}" style="${at(n.x,n.y)};width:${nw(n)}px">${esc(n.text)}</div>`).join("");
+  return `<div class="tb"><button data-z="fit">Fit</button><button data-z="1">100%</button><button data-z="out">−</button><button data-z="in">+</button><span id="zl"></span></div><div class="stage" id="stage"><div id="sizer"><div id="world" style="width:${Z.W}px;height:${Z.H}px">${bd}${nt}</div></div></div>`;
+}
 function fit(){
-  for(const w of document.querySelectorAll(".wrap")){
-    const f=w.firstElementChild,s=Math.min(1,w.clientWidth/f.width);
-    f.style.transform=`scale(${s})`;w.style.height=f.height*s+"px";
-  }
+  const st=$("#stage");if(!st)return;
+  const s=Z.mode==="fit"?Math.max(.02,Math.min(1,st.clientWidth/Z.W)):Z.s;Z.cur=s;
+  $("#world").style.transform=`scale(${s})`;
+  $("#sizer").style.width=Z.W*s+"px";$("#sizer").style.height=Z.H*s+"px";
+  $("#zl").textContent=Math.round(s*100)+"%";
 }
 function show(){
   const i=ITEMS.find(x=>key(x)===hash());
@@ -97,15 +121,21 @@ function show(){
   if(i.href)bar+=`<a href="${esc(i.href)}" target="_blank">open in new tab ↗</a>`;
   $("#bar").innerHTML=bar;
   let v="";
-  if(i.boards.length)v=i.boards.map(b=>`<div class="board"><h3>${esc(b.title)}</h3><div class="wrap"><iframe src="${esc(b.href)}" width="${b.w}" height="${b.h}" title="${esc(b.title)}"></iframe></div></div>`).join("");
+  if(i.boards.length||i.notes.length)v=canvasHtml(i);
   else if(i.href)v=`<iframe src="${esc(i.href)}" title="${esc(i.title)}"></iframe>`;
   else v=`<div class="card"><b>${esc(i.title)}</b><p>${esc(i.purpose)}</p><p style="color:var(--mute)">${i.url?"This page lives on claude.ai and is private to its owner, so it cannot be embedded here.":"This canvas has no boards to show."}</p>${i.url?`<a href="${esc(i.url)}" target="_blank" rel="noopener">Open on claude.ai ↗</a>`:""}</div>`;
+  Z.mode="fit";$("#view").className=i.boards.length||i.notes.length?"cv":"";
   $("#view").innerHTML=v;fit();
+  if(RO&&$("#stage"))RO.observe($("#stage"));
 }
 $("#list").onclick=e=>{const a=e.target.closest(".it");if(a)location.hash=encodeURIComponent(a.dataset.k)};
 addEventListener("hashchange",()=>{show();render()});
 addEventListener("resize",fit);
-if(typeof ResizeObserver!=="undefined")new ResizeObserver(fit).observe($("#view"));
+const RO=typeof ResizeObserver!=="undefined"?new ResizeObserver(fit):null;
+if(RO)RO.observe($("#view"));
+$("#view").onclick=e=>{const b=e.target.closest("[data-z]");if(!b)return;const z=b.dataset.z;
+  if(z==="fit")Z.mode="fit";else{Z.mode="z";Z.s=z==="1"?1:Math.min(4,Math.max(.02,Z.cur*(z==="in"?1.25:.8)))}
+  fit()};
 for(const id of ["q","kd","gr"])$("#"+id).oninput=render;
 render();
 if(location.hash)show();else if(ITEMS.length)location.hash=encodeURIComponent(key(ITEMS[0]));
