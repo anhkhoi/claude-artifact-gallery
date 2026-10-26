@@ -7,7 +7,9 @@ from typing import Dict, Iterator, List, Tuple
 from ..model import Item
 from . import SKIP_DIRS
 
-LINE = re.compile(r"^- \[(?P<title>.+?)\]\((?P<url>https?://[^)\s]+)\):\s*(?P<rest>.*)$")
+BULLET = re.compile(r"^\s*[-*+]\s+\[")  # a list item that starts with a link
+HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*#*\s*$")
+LINE = re.compile(r"^\s*[-*+]\s+\[(?P<title>.+?)\]\((?P<url>https?://\S+?)\):\s*(?P<rest>.*)$")
 DATE = re.compile(r"\((\d{4}-\d{2}-\d{2})")
 COPY = re.compile(r"Copy:\s*(\S.*)")
 TICKED_RUN = re.compile(r"^((?:`[^`]+`(?:,\s*)?)+)")
@@ -53,14 +55,15 @@ def parse_registry(path: Path, root: Path, warn=print) -> Tuple[List[Item], Dict
         return items, copies
     group = ""
     for n, line in enumerate(lines, 1):
-        if line.startswith("## "):
-            group = line[3:].strip()
+        h = HEADING.match(line)
+        if h:
+            group = h[1]
             continue
-        if not line.startswith("- ["):
+        if not BULLET.match(line):
             continue
         m = LINE.match(line)
         if not m:
-            warn(f"{path}:{n}: skipped registry line without a title and URL")
+            warn(f"{path}:{n}: skipped registry line, expected - [title](https://...): purpose")
             continue
         rest = m["rest"]
         d = DATE.search(rest)

@@ -94,3 +94,33 @@ def test_copy_path_without_backticks(tmp_path):
     p = write(tmp_path, "## A\n- [T](https://claude.ai/artifact/a): p (2026-10-01). Copy: d/x/.\n")
     _, copies = parse_registry(p, tmp_path)
     assert copies == {"https://claude.ai/artifact/a": (tmp_path / "d/x").resolve()}
+
+
+def test_url_with_parentheses_is_parsed(tmp_path):
+    p = write(tmp_path, "## A\n- [Doc](https://en.wikipedia.org/wiki/Foo_(bar)): about foo (2026-10-01)\n")
+    [i] = parse_registry(p, tmp_path)[0]
+    assert i.url == "https://en.wikipedia.org/wiki/Foo_(bar)"
+    assert (i.purpose, i.date) == ("about foo", "2026-10-01")
+
+
+def test_star_and_indented_bullets_are_parsed(tmp_path):
+    p = write(tmp_path, "## A\n* [Star](https://claude.ai/artifact/1): s (2026-10-01)\n"
+                        "  - [Indented](https://claude.ai/artifact/2): i (2026-10-02)\n"
+                        "+ [Plus](https://claude.ai/artifact/3): p (2026-10-03)\n")
+    items, _ = parse_registry(p, tmp_path)
+    assert [i.title for i in items] == ["Star", "Indented", "Plus"]
+
+
+def test_link_bullet_without_url_warns_clearly_and_plain_bullets_are_ignored(tmp_path):
+    p = write(tmp_path, "## A\n- [Broken]: no url\n- just a note\n")
+    warned = []
+    items, _ = parse_registry(p, tmp_path, warn=warned.append)
+    assert items == [] and len(warned) == 1
+    assert "expected - [title](https://" in warned[0] and "artifacts.md:6:" in warned[0]
+
+
+def test_any_heading_level_sets_the_group(tmp_path):
+    p = write(tmp_path, "# Top\n- [One](https://claude.ai/artifact/1): a (2026-10-01)\n"
+                        "### Deep\n- [Two](https://claude.ai/artifact/2): b (2026-10-02)\n")
+    items, _ = parse_registry(p, tmp_path)
+    assert [(i.title, i.group) for i in items] == [("One", "Top"), ("Two", "Deep")]
