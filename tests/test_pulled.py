@@ -142,7 +142,7 @@ def test_upgrade_with_pipx_reinstalls_from_github(monkeypatch, fake_run, capsys)
     assert main(["upgrade"]) == 0
     assert fake_run.calls[0][:3] == ["pipx", "install", "--force"] and fake_run.calls[0][3].startswith("git+https://")
     assert not any("install-skill" in c for c in fake_run.calls)
-    assert "Upgraded: claude-artifact-gallery 9.9" in capsys.readouterr().out
+    assert "Upgraded to claude-artifact-gallery 9.9" in capsys.readouterr().out
 
 
 def test_upgrade_with_pip_uses_this_interpreter(monkeypatch, fake_run):

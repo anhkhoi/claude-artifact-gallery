@@ -40,6 +40,13 @@ def _warn(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+def _ok(headline: str, *details: str) -> None:
+    """A check-marked result line, then one indented line per detail."""
+    print(f"✓ {headline}")
+    for d in details:
+        print(f"  {d}")
+
+
 def collect(root: Path, warn=_warn) -> Tuple[List[Item], dict]:
     skipped = 0
 
@@ -100,7 +107,7 @@ def add(argv) -> int:
     found = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
     title = args.title or (found and found.group(1).strip()) or html.stem
     dest = add_pulled(html, url, title, args.group)
-    print(f"saved '{title}' ({url}) -> {dest}")
+    _ok(f"Saved \"{title}\"", url, f"{dest}")
     return 0
 
 
@@ -128,14 +135,15 @@ def upgrade(argv) -> int:
                             description="Install the latest version from GitHub and refresh the /pull skill.").parse_args(argv)
     method, detail = install_method()
     if method == "local":
-        print(f"This copy runs from a local folder ({detail}).\nUpdate it there: git pull, then pip install -e . again if needed.")
+        print(f"This copy runs from a local folder, so there is nothing to download.\n  {detail}\n"
+              "  Update it there: git pull, then pip install -e . again if needed.")
         return 0
     if method == "unknown":
         _warn(f"Cannot tell how this was installed. Update by hand with:\n  {MANUAL_UPGRADE}")
         return 1
     cmd = (["pipx", "install", "--force", REPO_URL] if method == "pipx"
            else [sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", REPO_URL])
-    print(f"Upgrading with {method}: {' '.join(cmd)}")
+    print(f"Upgrading with {method}...\n  {' '.join(cmd)}")
     try:
         code = subprocess.run(cmd).returncode
     except OSError as e:
@@ -146,7 +154,7 @@ def upgrade(argv) -> int:
         return code
     if skill_dest().exists():  # the new code is on disk, so refresh the skill with it, not with this old process
         subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "install-skill", "--force"])
-    print("Upgraded: " + subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "--version"],
+    _ok("Upgraded to " + subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "--version"],
                                         capture_output=True, text=True).stdout.strip())
     return 0
 
@@ -190,14 +198,14 @@ def install_skill(argv) -> int:
     args = ap.parse_args(argv)
     dest, src = skill_dest(args.dir), SKILL_SRC
     if dest.exists() and dest.read_bytes() == src.read_bytes():
-        print(f"/pull is already up to date: {dest}")
+        _ok("/pull skill is already up to date", f"{dest}")
         return 0
     if dest.exists() and not args.force:
         _warn(f"{dest} exists and differs; use --force to overwrite it")
         return 1
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, dest)
-    print(f"installed /pull -> {dest}\nRestart Claude Code (or start a new session) to pick it up.")
+    _ok("/pull skill installed", f"{dest}", "Restart Claude Code (or open a new session) to use it.")
     return 0
 
 
@@ -221,11 +229,11 @@ def main(argv=None) -> int:
     items, counts = collect(root)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(items, root), encoding="utf-8")
-    print(f"{len(items)} artifact(s): archify {counts['archify']}, registry {counts['registry']}, "
-          f"canvas {counts['canvas']}, pulled {counts['pulled']}, skipped {counts['skipped']} -> {out}")
+    _ok(f"{len(items)} artifact{'' if len(items) == 1 else 's'}",
+        " · ".join(f"{k} {counts[k]}" for k in ("archify", "registry", "canvas", "pulled", "skipped")), f"{out}")
     hint = stale_skill_hint()
     if hint:
-        _warn(hint)
+        _warn(f"! {hint}")
     if not args.no_open:
         webbrowser.open(out.as_uri())
     return 0
