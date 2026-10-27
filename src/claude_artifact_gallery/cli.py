@@ -2,7 +2,7 @@
 
 Usage: claude-artifact-gallery [ROOT] [-o OUT] [--no-open] [--version]
        claude-artifact-gallery add HTML --url URL_OR_ID [--title TITLE] [--group GROUP]
-       claude-artifact-gallery install-skill [--dir SKILLS_DIR] [--force]
+       claude-artifact-gallery install-skill [--all] [--profile CONFIG_DIR]... [--dir SKILLS_DIR]... [--force]
        claude-artifact-gallery upgrade
   ROOT  folder to scan recursively (default: git root of cwd, else cwd)
   OUT   gallery file (default: ~/.cache/claude-artifact-gallery/<root>-<hash>.html,
@@ -27,6 +27,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import List, Tuple
 
+from . import skill
 from .cache import cache_dir
 from .model import Item, merge
 from .page import render
@@ -102,7 +103,9 @@ def add(argv) -> int:
         _warn(str(e))
         return 1
     except OSError as e:
-        _warn(f"cannot read {args.html}: {e.strerror}")
+        _warn(f"cannot read {args.html}: {e.strerror}\n"
+              "  `add` saves an HTML file you already have. To fetch a private claude.ai artifact from its link or id,\n"
+              "  run /artifact-gallery-pull <link-or-id> inside Claude Code (install it once with: claude-artifact-gallery install-skill).")
         return 1
     found = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
     title = args.title or (found and found.group(1).strip()) or html.stem
@@ -132,7 +135,7 @@ def install_method() -> Tuple[str, str]:
 
 def upgrade(argv) -> int:
     argparse.ArgumentParser(prog="claude-artifact-gallery upgrade",
-                            description="Install the latest version from GitHub and refresh the /pull skill.").parse_args(argv)
+                            description="Install the latest version from GitHub and refresh the /artifact-gallery-pull skill.").parse_args(argv)
     method, detail = install_method()
     if method == "local":
         print(f"This copy runs from a local folder, so there is nothing to download.\n  {detail}\n"
@@ -152,19 +155,13 @@ def upgrade(argv) -> int:
     if code:
         _warn(f"upgrade failed (exit {code}); git and network access are needed. By hand:\n  {MANUAL_UPGRADE}")
         return code
-    if skill_dest().exists():  # the new code is on disk, so refresh the skill with it, not with this old process
-        subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "install-skill", "--force"])
+    have = [p for p in skill.profiles() if skill.is_installed(p / "skills")]
+    if have:  # the new code is on disk, so refresh the skill with it, not with this old process
+        flags = [f for p in have for f in ("--profile", str(p))]
+        subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "install-skill", "--force", *flags])
     _ok("Upgraded to " + subprocess.run([sys.executable, "-m", "claude_artifact_gallery.cli", "--version"],
                                         capture_output=True, text=True).stdout.strip())
     return 0
-
-
-SKILL_SRC = Path(__file__).parent / "skills" / "pull" / "SKILL.md"
-
-
-def skill_dest(skills_dir=None) -> Path:
-    config = os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude")
-    return (Path(skills_dir) if skills_dir else Path(config) / "skills") / "pull" / "SKILL.md"
 
 
 def version_string() -> str:
@@ -180,33 +177,49 @@ def version_string() -> str:
 
 
 def stale_skill_hint() -> str:
-    """A hint when an installed /pull skill differs from the packaged one, else ''."""
-    dest = skill_dest()
-    try:
-        if dest.exists() and dest.read_bytes() != SKILL_SRC.read_bytes():
-            return f"the /pull skill at {dest} is out of date: run claude-artifact-gallery install-skill --force"
-    except OSError:
-        pass
-    return ""
+    """A hint naming the profiles whose installed skill is out of date, else ''."""
+    stale = skill.outdated_profiles()
+    if not stale:
+        return ""
+    flags = " ".join(f"--profile {p}" for p in stale)
+    return (f"the /{skill.NAME} skill is out of date in {', '.join(str(p) for p in stale)}: "
+            f"run claude-artifact-gallery install-skill --force {flags}")
 
 
 def install_skill(argv) -> int:
     ap = argparse.ArgumentParser(prog="claude-artifact-gallery install-skill",
-                                 description="Install the /pull skill into Claude Code so it works in every project.")
-    ap.add_argument("--dir", help="skills folder (default: $CLAUDE_CONFIG_DIR/skills, else ~/.claude/skills)")
+                                 description=f"Install the /{skill.NAME} skill into Claude Code so it works in every project.")
+    ap.add_argument("--all", action="store_true", help="every Claude profile found (~/.claude, ~/.claude-*, $CLAUDE_CONFIG_DIR)")
+    ap.add_argument("--profile", action="append", default=[], metavar="CONFIG_DIR",
+                    help="a Claude config folder, e.g. ~/.claude-work (repeatable)")
+    ap.add_argument("--dir", action="append", default=[], metavar="SKILLS_DIR", help="a skills folder (repeatable)")
     ap.add_argument("--force", action="store_true", help="overwrite a different existing skill")
     args = ap.parse_args(argv)
-    dest, src = skill_dest(args.dir), SKILL_SRC
-    if dest.exists() and dest.read_bytes() == src.read_bytes():
-        _ok("/pull skill is already up to date", f"{dest}")
-        return 0
-    if dest.exists() and not args.force:
-        _warn(f"{dest} exists and differs; use --force to overwrite it")
-        return 1
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, dest)
-    _ok("/pull skill installed", f"{dest}", "Restart Claude Code (or open a new session) to use it.")
-    return 0
+    explicit = args.all or args.profile or args.dir
+    targets = [p / "skills" for p in (skill.profiles() if args.all else [])]
+    targets += [Path(p).expanduser() / "skills" for p in args.profile] + [Path(d).expanduser() for d in args.dir]
+    if not targets:
+        targets = [skill.current_profile() / "skills"]
+    code, installed, seen = 0, False, set()
+    for skills_dir in targets:
+        if skills_dir.resolve() in seen:
+            continue
+        seen.add(skills_dir.resolve())
+        status, dest, legacy = skill.install(skills_dir, args.force)
+        if status == "conflict":
+            _warn(f"{dest} exists and differs; use --force to overwrite it")
+            code = 1
+            continue
+        installed = installed or status == "installed"
+        _ok(f"/{skill.NAME} skill " + ("installed" if status == "installed" else "is already up to date"), f"{dest}",
+            *([f"removed the old /{skill.LEGACY_NAME} skill: {legacy}"] if legacy else []))
+    if installed:
+        print("  Restart Claude Code (or open a new session) to use it.")
+    others = [p for p in skill.profiles() if (p / "skills").resolve() not in seen]
+    if others and not explicit:
+        _warn("! Other Claude profiles found: " + ", ".join(str(p) for p in others)
+              + "\n  Add --all, or --profile DIR, to install there too.")
+    return code
 
 
 def main(argv=None) -> int:

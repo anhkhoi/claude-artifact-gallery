@@ -1,0 +1,1 @@
+../../../src/claude_artifact_gallery/skills/artifact-gallery-pull/SKILL.md

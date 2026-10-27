@@ -1,6 +1,6 @@
 ---
-name: pull
-description: Add a claude.ai artifact to the gallery so it is embedded and viewable there, not just linked. Use when the user runs /pull <link-or-id> or asks to add/save/import a claude.ai artifact into the gallery.
+name: artifact-gallery-pull
+description: Add a claude.ai artifact to the gallery so it is embedded and viewable there, not just linked. Use when the user runs /artifact-gallery-pull <link-or-id> or asks to add/save/import a claude.ai artifact into the gallery.
 ---
 
 # Pull a claude.ai artifact into the gallery

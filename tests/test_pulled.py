@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pytest
 
 from claude_artifact_gallery.cli import collect, install_method, main
@@ -75,17 +78,20 @@ def test_pulled_copy_attaches_to_matching_registry_entry(tmp_path):
     assert items[0].href.startswith("file://") and counts["pulled"] == 0
 
 
+NAME = "artifact-gallery-pull"
+
+
 def test_install_skill_copies_then_is_idempotent(tmp_path, capsys):
     skills = tmp_path / "skills"
     assert main(["install-skill", "--dir", str(skills)]) == 0
-    dest = skills / "pull" / "SKILL.md"
-    assert dest.read_text().startswith("---\nname: pull\n")
+    dest = skills / NAME / "SKILL.md"
+    assert dest.read_text().startswith(f"---\nname: {NAME}\n")
     assert main(["install-skill", "--dir", str(skills)]) == 0
     assert "up to date" in capsys.readouterr().out
 
 
 def test_install_skill_keeps_a_different_copy_unless_forced(tmp_path):
-    dest = tmp_path / "pull" / "SKILL.md"
+    dest = tmp_path / NAME / "SKILL.md"
     dest.parent.mkdir()
     dest.write_text("mine")
     assert main(["install-skill", "--dir", str(tmp_path)]) == 1 and dest.read_text() == "mine"
@@ -96,7 +102,50 @@ def test_install_skill_keeps_a_different_copy_unless_forced(tmp_path):
 def test_install_skill_defaults_to_claude_config_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "cfg"))
     assert main(["install-skill"]) == 0
-    assert (tmp_path / "cfg" / "skills" / "pull" / "SKILL.md").exists()
+    assert (tmp_path / "cfg" / "skills" / NAME / "SKILL.md").exists()
+
+
+def make_profile(home, name):
+    p = home / name
+    (p / "projects").mkdir(parents=True)
+    return p
+
+
+def test_install_skill_profile_flag_is_repeatable(tmp_path):
+    a, b = make_profile(tmp_path, ".x"), make_profile(tmp_path, ".y")
+    assert main(["install-skill", "--profile", str(a), "--profile", str(b)]) == 0
+    assert all((p / "skills" / NAME / "SKILL.md").exists() for p in (a, b))
+
+
+def test_install_skill_all_finds_every_profile_and_skips_lookalikes(monkeypatch, capsys):
+    home = Path(os.environ["HOME"])
+    work, personal = make_profile(home, ".claude-work"), make_profile(home, ".claude-personal")
+    (home / ".claude-backup").mkdir()  # not a Claude config folder
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(personal))
+    assert main(["install-skill", "--all"]) == 0
+    assert (work / "skills" / NAME).exists() and (personal / "skills" / NAME).exists()
+    assert not (home / ".claude-backup" / "skills").exists()
+    assert "Other Claude profiles" not in capsys.readouterr().err
+
+
+def test_install_skill_names_other_profiles_when_unsure(capsys):
+    home = Path(os.environ["HOME"])
+    make_profile(home, ".claude-personal")
+    assert main(["install-skill"]) == 0  # CLAUDE_CONFIG_DIR unset: goes to ~/.claude
+    assert (home / ".claude" / "skills" / NAME).exists()
+    err = capsys.readouterr().err
+    assert ".claude-personal" in err and "--all" in err
+
+
+def test_install_skill_removes_the_old_pull_skill_only_if_ours(tmp_path):
+    ours = tmp_path / "a" / "pull" / "SKILL.md"
+    ours.parent.mkdir(parents=True)
+    ours.write_text("claude-artifact-gallery add ...")
+    theirs = tmp_path / "b" / "pull" / "SKILL.md"
+    theirs.parent.mkdir(parents=True)
+    theirs.write_text("my own pull skill")
+    assert main(["install-skill", "--dir", str(tmp_path / "a"), "--dir", str(tmp_path / "b")]) == 0
+    assert not ours.parent.exists() and theirs.read_text() == "my own pull skill"
 
 
 def test_version_flag(capsys):
@@ -115,9 +164,10 @@ def test_gallery_run_hints_when_installed_skill_is_stale(tmp_path, monkeypatch, 
     main(["install-skill"])
     main(args)
     assert "out of date" not in capsys.readouterr().err        # installed and current
-    (tmp_path / "cfg" / "skills" / "pull" / "SKILL.md").write_text("old")
+    (tmp_path / "cfg" / "skills" / NAME / "SKILL.md").write_text("old")
     main(args)
-    assert "install-skill --force" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "install-skill --force" in err and str(tmp_path / "cfg") in err
 
 
 class FakeRun:
@@ -157,7 +207,18 @@ def test_upgrade_refreshes_an_installed_skill(monkeypatch, fake_run, tmp_path):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "cfg"))
     main(["install-skill"])
     assert main(["upgrade"]) == 0
-    assert any(c[-2:] == ["install-skill", "--force"] for c in fake_run.calls)
+    refresh = next(c for c in fake_run.calls if "install-skill" in c)
+    assert "--force" in refresh and refresh[-2:] == ["--profile", str(tmp_path / "cfg")]
+
+
+def test_upgrade_refreshes_every_profile_that_has_the_skill(monkeypatch, fake_run):
+    home = Path(os.environ["HOME"])
+    a, b, c = make_profile(home, ".claude-a"), make_profile(home, ".claude-b"), make_profile(home, ".claude-c")
+    monkeypatch.setattr("claude_artifact_gallery.cli.install_method", lambda: ("pipx", ""))
+    main(["install-skill", "--profile", str(a), "--profile", str(b)])  # c never installed it
+    assert main(["upgrade"]) == 0
+    refresh = next(x for x in fake_run.calls if "install-skill" in x)
+    assert refresh.count("--profile") == 2 and str(a) in refresh and str(b) in refresh and str(c) not in refresh
 
 
 def test_upgrade_leaves_a_local_clone_alone(monkeypatch, fake_run, capsys):
@@ -201,3 +262,8 @@ def test_install_method_unknown_when_not_installed(monkeypatch):
         raise __import__("importlib.metadata").metadata.PackageNotFoundError(name)
     monkeypatch.setattr("claude_artifact_gallery.cli.metadata.distribution", gone)
     assert install_method() == ("unknown", "")
+
+
+def test_add_missing_file_points_to_pull(tmp_path, capsys):
+    assert main(["add", str(tmp_path / "page.html"), "--url", "abc"]) == 1
+    assert "/artifact-gallery-pull" in capsys.readouterr().err
