@@ -20,6 +20,21 @@ claude-artifact-gallery install-skill
 
 The gallery is written to `~/.cache/claude-artifact-gallery/`, never into the scanned repo.
 
+## How it works
+
+![Workflow: Claude reads a private artifact and saves it with add into the pulled cache; running the gallery scans the project folder, merges those with the saved copies, renders one HTML page and opens it. install-skill and upgrade keep the /artifact-gallery-pull skill available.](docs/images/workflow-light.png)
+
+The numbers on the lanes are not steps to follow in order; the arrows show where data flows. Only the first flow
+below is needed, and you can run it straight away:
+
+- **Build the gallery (required):** `claude-artifact-gallery` scans the project folder, adds any saved copies, merges
+  entries that name the same canvas (`Copy:`) or the same claude.ai link, and renders one HTML page in the cache.
+  It needs no skill and no Claude Code.
+- **Pull a private artifact (optional):** in Claude Code, `/artifact-gallery-pull` has Claude read the artifact and run
+  `add`, which saves it into `pulled/`. The next run of the gallery picks it up.
+- **Keep the skill current (optional):** `install-skill` makes `/artifact-gallery-pull` available, `upgrade`
+  reinstalls the tool and refreshes the skill.
+
 ## What it finds
 
 | Kind | Found by | Shown as |
