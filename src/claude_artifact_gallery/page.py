@@ -10,8 +10,8 @@ PAGE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Claude Artifact Gallery</title>
 <style>
-:root{--bg:#fff;--panel:#f6f7f9;--fg:#1c2128;--mute:#667085;--line:#e1e4e8;--acc:#2563eb;--sel:#e8f0fe;--cv:#eeeeec;--k-archify:#6d28d9;--k-registry:#c2410c;--k-canvas:#0f766e}
-@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--panel:#151a21;--fg:#e6edf3;--mute:#8b96a5;--line:#262d37;--acc:#6ea8ff;--sel:#1b2a44;--cv:#1a1f27;--k-archify:#b794f6;--k-registry:#fb923c;--k-canvas:#2dd4bf}}
+:root{--bg:#fff;--panel:#f6f7f9;--fg:#1c2128;--mute:#667085;--line:#e1e4e8;--acc:#2563eb;--sel:#e8f0fe;--cv:#eeeeec;--k-archify:#6d28d9;--k-registry:#c2410c;--k-canvas:#0f766e;--k-pulled:#1d4ed8}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--panel:#151a21;--fg:#e6edf3;--mute:#8b96a5;--line:#262d37;--acc:#6ea8ff;--sel:#1b2a44;--cv:#1a1f27;--k-archify:#b794f6;--k-registry:#fb923c;--k-canvas:#2dd4bf;--k-pulled:#60a5fa}}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
 body{display:flex;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,sans-serif}
 aside{width:340px;min-width:260px;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line)}
@@ -24,7 +24,7 @@ input,select{width:100%;padding:7px 9px;margin-bottom:6px;border:1px solid var(-
 .it:hover,.it.on{background:var(--sel)}.it.on{border-left-color:var(--acc)}
 .t{font-weight:600}.m{color:var(--mute);font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
 .tag{border:1px solid var(--line);border-radius:10px;padding:0 6px}
-.tag.k-archify{--k:var(--k-archify)}.tag.k-registry{--k:var(--k-registry)}.tag.k-canvas{--k:var(--k-canvas)}
+.tag.k-archify{--k:var(--k-archify)}.tag.k-registry{--k:var(--k-registry)}.tag.k-canvas{--k:var(--k-canvas)}.tag.k-pulled{--k:var(--k-pulled)}
 .tag[class*="k-"]{color:var(--k);border-color:var(--k);background:color-mix(in srgb,var(--k) 12%,transparent)}
 main{flex:1;display:flex;flex-direction:column;min-width:0}
 .bar{display:flex;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);color:var(--mute);font-size:12px}

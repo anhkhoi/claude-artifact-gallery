@@ -6,7 +6,7 @@ from typing import Dict, List
 
 @dataclass
 class Item:
-    kind: str  # "archify" | "registry" | "canvas"
+    kind: str  # "archify" | "registry" | "canvas" | "pulled"
     title: str
     group: str
     purpose: str = ""
