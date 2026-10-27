@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -267,3 +268,45 @@ def test_install_method_unknown_when_not_installed(monkeypatch):
 def test_add_missing_file_points_to_pull(tmp_path, capsys):
     assert main(["add", str(tmp_path / "page.html"), "--url", "abc"]) == 1
     assert "/artifact-gallery-pull" in capsys.readouterr().err
+
+
+def make_canvas_download(tmp_path, with_project_dir=True):
+    base = tmp_path / "dl"
+    folder = base / "project" if with_project_dir else base
+    folder.mkdir(parents=True)
+    (folder / "canvas.json").write_text(json.dumps(
+        {"title": "Arch", "order": ["Main.dc.html"], "boards": {"Main.dc.html": {"x": 0, "y": 0, "w": 900, "h": 700}},
+         "notes": {"n": {"x": 5, "y": 6, "text": "hi"}}}))
+    (folder / "Main.dc.html").write_text("<x-dc>board</x-dc>")
+    return base
+
+
+@pytest.mark.parametrize("with_project_dir", [True, False])
+def test_add_a_canvas_folder_shows_its_boards(tmp_path, with_project_dir):
+    dl = make_canvas_download(tmp_path, with_project_dir)
+    assert main(["add", str(dl), "--url", "abc"]) == 0
+    [item] = find_pulled()
+    assert (item.kind, item.title, item.url) == ("pulled", "Arch", "https://claude.ai/artifact/abc")
+    assert item.boards[0]["w"] == 900 and item.boards[0]["href"].endswith("Main.dc.html") and item.notes[0]["text"] == "hi"
+
+
+def test_add_folder_without_canvas_json_is_rejected(tmp_path, capsys):
+    (tmp_path / "empty").mkdir()
+    assert main(["add", str(tmp_path / "empty"), "--url", "abc"]) == 1
+    assert "no canvas.json" in capsys.readouterr().err and find_pulled() == []
+
+
+def test_a_url_can_change_from_page_to_canvas(tmp_path):
+    main(["add", str(page(tmp_path)), "--url", "abc"])
+    main(["add", str(make_canvas_download(tmp_path)), "--url", "abc"])
+    [item] = find_pulled()
+    assert item.boards and not item.href
+
+
+def test_pulled_canvas_attaches_to_matching_registry_entry(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "artifacts.md").write_text("## G\n- [Reg](https://claude.ai/artifact/abc): p (2026-10-17).\n")
+    main(["add", str(make_canvas_download(tmp_path)), "--url", "abc"])
+    [item], counts = collect(root)
+    assert item.title == "Reg" and item.boards and counts["pulled"] == 0

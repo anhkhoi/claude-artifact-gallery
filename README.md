@@ -59,10 +59,11 @@ Then, in any project, run
 Claude reads the page and runs
 
 ```
-claude-artifact-gallery add page.html --url <link-or-id> [--title T] [--group G]
+claude-artifact-gallery add <page.html or canvas folder> --url <link-or-id> [--title T] [--group G]
 ```
 
-`add` only saves an HTML file you already have; it cannot download a private artifact by itself, so use
+A design canvas (`canvas.json` plus `*.dc.html` boards) is saved as a folder and drawn like any other canvas;
+`add` only saves an HTML file or canvas folder you already have; it cannot download a private artifact by itself, so use
 `/artifact-gallery-pull`
 in Claude Code rather than calling `add` with an id alone.
 

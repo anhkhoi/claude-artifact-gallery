@@ -33,7 +33,7 @@ from .model import Item, merge
 from .page import render
 from .sources.archify import find_archify
 from .sources.canvas import find_canvases
-from .sources.pulled import add_pulled, artifact_url, find_pulled
+from .sources.pulled import add_pulled, artifact_url, canvas_folder, find_pulled
 from .sources.registry import find_registries, parse_registry
 
 
@@ -65,7 +65,8 @@ def collect(root: Path, warn=_warn) -> Tuple[List[Item], dict]:
     pulled = {p.url: p for p in find_pulled()}
     for n, i in enumerate(items):  # a saved copy of a registry link is shown on that entry, not twice
         if i.url in pulled and not i.boards:
-            items[n] = replace(i, href=pulled.pop(i.url).href)
+            saved = pulled.pop(i.url)
+            items[n] = replace(i, href=saved.href, boards=saved.boards, notes=saved.notes, date=i.date or saved.date)
     items += list(pulled.values()) + find_archify(root)
     items.sort(key=lambda i: i.date, reverse=True)
     counts = Counter(i.kind for i in items)
@@ -89,16 +90,25 @@ def default_out(root: Path) -> Path:
 
 def add(argv) -> int:
     ap = argparse.ArgumentParser(prog="claude-artifact-gallery add",
-                                 description="Save the HTML of a claude.ai artifact so the gallery can embed it.")
-    ap.add_argument("html", help="local file holding the artifact's HTML")
+                                 description="Save a claude.ai artifact (its HTML file, or a design canvas folder) so the gallery can embed it.")
+    ap.add_argument("html", metavar="HTML_OR_CANVAS_DIR",
+                    help="local file holding the artifact's HTML, or the folder with its canvas.json (or the folder above `project/`)")
     ap.add_argument("--url", required=True, help="the artifact's claude.ai link, or just its id")
-    ap.add_argument("--title", help="default: the HTML <title>, else the file name")
+    ap.add_argument("--title", help="default: the HTML <title> or the canvas title, else the file name")
     ap.add_argument("--group", default="pulled")
     args = ap.parse_args(argv)
     try:
         url = artifact_url(args.url)
         html = Path(args.html)
-        text = html.read_text(encoding="utf-8", errors="replace")
+        if html.is_dir():
+            folder = canvas_folder(html)
+            if not folder:
+                raise ValueError(f"{html} has no canvas.json (looked in it and in project/)")
+            title_source = json.loads((folder / "canvas.json").read_text(encoding="utf-8")).get("title") or ""
+        else:
+            text = html.read_text(encoding="utf-8", errors="replace")
+            found = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
+            title_source = found.group(1).strip() if found else ""
     except ValueError as e:
         _warn(str(e))
         return 1
@@ -107,8 +117,7 @@ def add(argv) -> int:
               "  `add` saves an HTML file you already have. To fetch a private claude.ai artifact from its link or id,\n"
               "  run /artifact-gallery-pull <link-or-id> inside Claude Code (install it once with: claude-artifact-gallery install-skill).")
         return 1
-    found = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
-    title = args.title or (found and found.group(1).strip()) or html.stem
+    title = args.title or title_source or html.stem
     dest = add_pulled(html, url, title, args.group)
     _ok(f"Saved \"{title}\"", url, f"{dest}")
     return 0
